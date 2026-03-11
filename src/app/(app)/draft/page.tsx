@@ -44,8 +44,9 @@ export default function DraftPage() {
     // Auto-save: triggers 2s after any squad/formation/name change
     const { saveStatus, lastSaved, forceSave } = useAutoSaveDraft()
 
-    // Sync draft from supabase on load
-    useDraftSync()
+    // NOTE: useDraftSync disabled — was wiping localStorage squad on reload.
+    // Zustand persist middleware already saves to localStorage on every change.
+    // useDraftSync()
 
     const filledStarters = squad.filter(Boolean).length
     const filledBench = bench.filter(Boolean).length
