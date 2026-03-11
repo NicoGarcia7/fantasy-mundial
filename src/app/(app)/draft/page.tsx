@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Save, RotateCcw, CheckCircle2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
@@ -12,7 +12,7 @@ import BudgetBar from '@/components/draft/BudgetBar'
 import FormationSelector from '@/components/draft/FormationSelector'
 import AutoSaveIndicator from '@/components/draft/AutoSaveIndicator'
 import { useAutoSaveDraft } from '@/hooks/useAutoSaveDraft'
-import { useDraftSync } from '@/hooks/useDraftSync'
+import { useDraftLocalStorage } from '@/hooks/useDraftLocalStorage'
 import PlayerPicker from '@/components/draft/PlayerPicker'
 import BenchRow from '@/components/draft/BenchRow'
 
@@ -41,17 +41,11 @@ export default function DraftPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [savedOnce, setSavedOnce] = useState(false)
 
-    // Rehydrate Zustand from localStorage on every mount (Next.js App Router SSR fix)
-    useEffect(() => {
-        useDraftStore.persist.rehydrate()
-    }, [])
+    // Persist draft to localStorage (explicit — bypasses Next.js SSR hydration quirks)
+    useDraftLocalStorage()
 
     // Auto-save: triggers 2s after any squad/formation/name change
     const { saveStatus, lastSaved, forceSave } = useAutoSaveDraft()
-
-    // NOTE: useDraftSync disabled — was wiping localStorage squad on reload.
-    // Zustand persist middleware already saves to localStorage on every change.
-    // useDraftSync()
 
     const filledStarters = squad.filter(Boolean).length
     const filledBench = bench.filter(Boolean).length
