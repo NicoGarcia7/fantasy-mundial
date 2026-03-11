@@ -118,5 +118,5 @@ export function useAutoSaveDraft() {
         return () => { isMounted.current = false }
     }, [])
 
-    return { saveStatus, lastSaved }
+    return { saveStatus, lastSaved, forceSave: doSave }
 }

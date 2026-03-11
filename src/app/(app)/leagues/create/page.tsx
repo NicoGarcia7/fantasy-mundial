@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Lock, Globe, Users, Loader2, CheckCircle2, Copy } from 'lucide-react'
+import { ArrowLeft, Lock, Globe, Loader2, CheckCircle2, Copy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -14,17 +14,15 @@ import { useLeagueStore, generateLeagueCode } from '@/store/leagueStore'
 import type { League, LeagueType } from '@/types'
 import Link from 'next/link'
 
-const MAX_MEMBERS_OPTIONS = [4, 8, 12, 16, 20, 50, 100]
-
 export default function CreateLeaguePage() {
     const router = useRouter()
     const { addLeague } = useLeagueStore()
 
     const [name, setName] = useState('')
     const [type, setType] = useState<LeagueType>('private')
-    const [maxMembers, setMaxMembers] = useState(20)
     const [status, setStatus] = useState<'idle' | 'creating' | 'done'>('idle')
     const [createdCode, setCreatedCode] = useState('')
+    const [createdId, setCreatedId] = useState('')
 
     const isValid = name.trim().length >= 3
 
@@ -46,6 +44,19 @@ export default function CreateLeaguePage() {
                 const { data: { user } } = await supabase.auth.getUser()
                 if (!user) throw new Error('Not authenticated')
 
+                // ── Ensure profile exists (may not if trigger failed) ─────
+                const { error: profileErr } = await supabase
+                    .from('profiles')
+                    .upsert(
+                        {
+                            id: user.id,
+                            username: user.email?.split('@')[0] ?? `user_${user.id.slice(0, 6)}`,
+                        },
+                        { onConflict: 'id', ignoreDuplicates: true }
+                    )
+                if (profileErr) console.warn('[Profile upsert]', profileErr.message)
+
+                // ── Create the league (no member limit = 9999) ────────────
                 const { data, error } = await supabase
                     .from('leagues')
                     .insert({
@@ -53,18 +64,18 @@ export default function CreateLeaguePage() {
                         type,
                         invite_code: code,
                         created_by: user.id,
-                        max_members: maxMembers,
+                        max_members: 9999, // effectively unlimited
                     })
                     .select()
                     .single()
 
                 if (error) throw error
 
-                // Auto-join as first member
-                await supabase.from('league_members').insert({
-                    league_id: data.id,
-                    user_id: user.id,
-                })
+                // ── Auto-join as first member ─────────────────────────────
+                const { error: joinErr } = await supabase
+                    .from('league_members')
+                    .insert({ league_id: data.id, user_id: user.id })
+                if (joinErr) console.warn('[Auto-join]', joinErr.message)
 
                 newLeague = data as League
             } else {
@@ -76,7 +87,7 @@ export default function CreateLeaguePage() {
                     type,
                     invite_code: code,
                     created_by: 'local-user',
-                    max_members: maxMembers,
+                    max_members: 9999,
                     member_count: 1,
                     created_at: new Date().toISOString(),
                 }
@@ -84,16 +95,27 @@ export default function CreateLeaguePage() {
 
             addLeague(newLeague)
             setCreatedCode(newLeague.invite_code)
+            setCreatedId(newLeague.id)
             setStatus('done')
         } catch (err) {
-            toast.error('Error al crear la liga')
+            console.error('[CreateLeague]', err)
+            toast.error('Error al crear la liga: ' + (err as Error).message)
             setStatus('idle')
         }
     }
 
     const copyCode = () => {
         navigator.clipboard.writeText(createdCode)
-        toast.success('Código copiado al portapapeles!')
+        toast.success('¡Código copiado!')
+    }
+
+    const shareCode = () => {
+        const text = `¡Unite a mi liga de Fantasy Mundial 2026!\n🔑 Código: ${createdCode}\n👉 ${window.location.origin}/login`
+        if (navigator.share) {
+            navigator.share({ title: 'Fantasy Mundial 2026', text, url: window.location.origin + '/login' })
+        } else {
+            copyCode()
+        }
     }
 
     if (status === 'done') {
@@ -116,7 +138,7 @@ export default function CreateLeaguePage() {
 
                     <div>
                         <h2 className="font-display text-2xl font-bold text-white">¡Liga creada!</h2>
-                        <p className="text-slate-400 text-sm mt-1">Compartí este código para invitar amigos</p>
+                        <p className="text-slate-400 text-sm mt-1">Compartí este código para invitar amigos — sin límite de participantes</p>
                     </div>
 
                     {/* Invite code */}
@@ -137,17 +159,7 @@ export default function CreateLeaguePage() {
                             <Copy className="w-4 h-4" /> Copiar
                         </Button>
                         <Button
-                            onClick={() => {
-                                if (navigator.share) {
-                                    navigator.share({
-                                        title: 'Fantasy Mundial 2026',
-                                        text: `¡Unite a mi liga! Código: ${createdCode}`,
-                                        url: window.location.origin + '/login',
-                                    })
-                                } else {
-                                    copyCode()
-                                }
-                            }}
+                            onClick={shareCode}
                             className="flex-1 bg-[#39FF14] text-black font-bold hover:bg-[#39FF14]/90"
                             id="share-code-btn"
                         >
@@ -166,7 +178,7 @@ export default function CreateLeaguePage() {
     }
 
     return (
-        <div className="min-h-screen px-4 py-6 max-w-lg mx-auto space-y-6">
+        <div className="min-h-screen px-4 py-6 max-w-lg mx-auto space-y-6 pb-28">
             {/* Header */}
             <div className="flex items-center gap-3">
                 <Link href="/leagues">
@@ -206,8 +218,8 @@ export default function CreateLeaguePage() {
                                     onClick={() => setType(t)}
                                     id={`league-type-${t}`}
                                     className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all duration-200 ${isActive
-                                            ? 'border-[#39FF14] bg-[#39FF14]/5 shadow-[0_0_12px_rgba(57,255,20,0.2)]'
-                                            : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                                        ? 'border-[#39FF14] bg-[#39FF14]/5 shadow-[0_0_12px_rgba(57,255,20,0.2)]'
+                                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
                                         }`}
                                 >
                                     {t === 'private'
@@ -215,10 +227,10 @@ export default function CreateLeaguePage() {
                                         : <Globe className={`w-6 h-6 ${isActive ? 'text-[#39FF14]' : 'text-slate-500'}`} />
                                     }
                                     <span className={`font-semibold text-sm ${isActive ? 'text-white' : 'text-slate-400'}`}>
-                                        {t === 'private' ? 'Privada' : 'Pública'}
+                                        {t === 'private' ? 'Privada 🔒' : 'Pública 🌍'}
                                     </span>
                                     <span className="text-slate-600 text-xs text-center">
-                                        {t === 'private' ? 'Solo por código' : 'Cualquiera puede unirse'}
+                                        {t === 'private' ? 'Solo por código — sin límite' : 'Cualquiera puede unirse'}
                                     </span>
                                 </motion.button>
                             )
@@ -226,33 +238,11 @@ export default function CreateLeaguePage() {
                     </div>
                 </div>
 
-                {/* Max members */}
-                <div className="space-y-2">
-                    <label className="text-slate-300 text-sm font-semibold flex items-center gap-2">
-                        <Users className="w-4 h-4" /> Máximo de participantes
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                        {MAX_MEMBERS_OPTIONS.map((n) => (
-                            <button
-                                key={n}
-                                id={`max-members-${n}`}
-                                onClick={() => setMaxMembers(n)}
-                                className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${maxMembers === n
-                                        ? 'bg-[#39FF14] text-black border-[#39FF14]'
-                                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
-                                    }`}
-                            >
-                                {n}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
                 {/* Info box */}
                 <div className="glass-card p-4 flex items-start gap-3 border border-slate-700/50">
-                    <span className="text-lg">💡</span>
+                    <span className="text-lg">⚽</span>
                     <p className="text-slate-400 text-xs leading-relaxed">
-                        La liga empieza el primer partido del Mundial. El código de invitación se puede compartir en cualquier momento antes de eso.
+                        Las ligas no tienen límite de participantes. Invitá a todos tus amigos con el código que te damos al crear la liga.
                     </p>
                 </div>
             </div>
@@ -263,8 +253,8 @@ export default function CreateLeaguePage() {
                 onClick={handleCreate}
                 disabled={!isValid || status === 'creating'}
                 className={`w-full h-12 font-bold text-base rounded-xl gap-2 transition-all ${isValid
-                        ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/90 shadow-[0_0_20px_rgba(57,255,20,0.3)]'
-                        : 'bg-slate-700 text-slate-500'
+                    ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/90 shadow-[0_0_20px_rgba(57,255,20,0.3)]'
+                    : 'bg-slate-700 text-slate-500'
                     }`}
             >
                 {status === 'creating'

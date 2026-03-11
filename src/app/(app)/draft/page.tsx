@@ -12,6 +12,7 @@ import BudgetBar from '@/components/draft/BudgetBar'
 import FormationSelector from '@/components/draft/FormationSelector'
 import AutoSaveIndicator from '@/components/draft/AutoSaveIndicator'
 import { useAutoSaveDraft } from '@/hooks/useAutoSaveDraft'
+import { useDraftSync } from '@/hooks/useDraftSync'
 import PlayerPicker from '@/components/draft/PlayerPicker'
 import BenchRow from '@/components/draft/BenchRow'
 
@@ -41,7 +42,10 @@ export default function DraftPage() {
     const [savedOnce, setSavedOnce] = useState(false)
 
     // Auto-save: triggers 2s after any squad/formation/name change
-    const { saveStatus, lastSaved } = useAutoSaveDraft()
+    const { saveStatus, lastSaved, forceSave } = useAutoSaveDraft()
+
+    // Sync draft from supabase on load
+    useDraftSync()
 
     const filledStarters = squad.filter(Boolean).length
     const filledBench = bench.filter(Boolean).length
@@ -103,12 +107,11 @@ export default function DraftPage() {
             return
         }
         setIsSaving(true)
-        // Supabase save connected in Paso 4
-        await new Promise((r) => setTimeout(r, 800))
+        await forceSave()
         setIsSaving(false)
         setSavedOnce(true)
         toast.success('¡Equipo guardado! 🏆', {
-            description: 'La integración con Supabase se completa en el Paso 4.',
+            description: 'Tu equipo está listo y seguro en la base de datos.',
         })
     }
 
