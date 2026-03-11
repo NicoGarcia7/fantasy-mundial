@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Save, RotateCcw, CheckCircle2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
@@ -40,6 +40,11 @@ export default function DraftPage() {
     const [nameInput, setNameInput] = useState(teamName)
     const [isSaving, setIsSaving] = useState(false)
     const [savedOnce, setSavedOnce] = useState(false)
+
+    // Rehydrate Zustand from localStorage on every mount (Next.js App Router SSR fix)
+    useEffect(() => {
+        useDraftStore.persist.rehydrate()
+    }, [])
 
     // Auto-save: triggers 2s after any squad/formation/name change
     const { saveStatus, lastSaved, forceSave } = useAutoSaveDraft()

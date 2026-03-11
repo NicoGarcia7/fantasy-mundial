@@ -121,6 +121,9 @@ export const useDraftStore = create<DraftState>()(
                 return positions[slotIndex]?.pos === player.position
             },
         }),
-        { name: 'fantasy-draft' }
+        {
+            name: 'fantasy-draft',
+            skipHydration: true,   // prevent SSR empty-state from overwriting localStorage
+        }
     )
 )
