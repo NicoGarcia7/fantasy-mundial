@@ -14,7 +14,8 @@ interface DraftState {
     isDraftLocked: boolean
 
     // Actions
-    setFormation: (f: Formation) => void
+    setFormation: (f: Formation) => void          // clears squad (user-initiated change)
+    setFormationOnly: (f: Formation) => void      // only updates formation (for DB sync)
     addPlayer: (player: Player, slotIndex: number, isBench: boolean) => void
     removePlayer: (slotIndex: number, isBench: boolean) => void
     swapPlayers: (fromIndex: number, fromBench: boolean, toIndex: number, toBench: boolean) => void
@@ -44,6 +45,9 @@ export const useDraftStore = create<DraftState>()(
             setFormation: (formation) => {
                 set({ formation, squad: emptySquad(), bench: emptyBench(), budgetUsed: 0 })
             },
+
+            // Only updates formation field — used when loading from DB to avoid clearing squad
+            setFormationOnly: (formation) => set({ formation }),
 
             addPlayer: (player, slotIndex, isBench) => {
                 const state = get()

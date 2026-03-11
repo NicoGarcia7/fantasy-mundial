@@ -7,7 +7,8 @@ import type { Player, Formation } from '@/types'
 
 export function useDraftSync() {
     const isMounted = useRef(true)
-    const { setFormation, setTeamName, squad, bench, addPlayer } = useDraftStore()
+    // Use setFormationOnly so we don't wipe the squad on load
+    const { setFormationOnly, setTeamName, addPlayer } = useDraftStore()
 
     useEffect(() => {
         isMounted.current = true
@@ -17,7 +18,6 @@ export function useDraftSync() {
 
             const supabase = createClient()
             const { data: { user } } = await supabase.auth.getUser()
-
             if (!user) return
 
             // 1. Fetch team metadata
@@ -27,45 +27,48 @@ export function useDraftSync() {
                 .eq('user_id', user.id)
                 .single()
 
-            if (teamErr || !team) return // No team saved yet, keep local state
+            if (teamErr || !team) return // No team saved yet — keep localStorage state
 
-            // 2. Fetch players
+            // 2. Fetch players in that team
             const { data: teamPlayers, error: playersErr } = await supabase
                 .from('user_team_players')
-                .select(`
-                    slot_index,
-                    is_bench,
-                    players (*)
-                `)
+                .select(`slot_index, is_bench, players (*)`)
                 .eq('team_id', team.id)
 
-            if (playersErr || !teamPlayers) return
+            if (playersErr || !teamPlayers || teamPlayers.length === 0) {
+                // Team exists but no players yet — just restore name/formation
+                if (!isMounted.current) return
+                setTeamName(team.name)
+                setFormationOnly(team.formation as Formation)
+                return
+            }
 
             if (!isMounted.current) return
 
-            // 3. Apply to store
+            // 3. Apply to store — formation first (without clearing squad)
             setTeamName(team.name)
-            setFormation(team.formation as Formation)
+            setFormationOnly(team.formation as Formation)
 
-            // Clear current squad briefly before injecting Supabase state
-            // It's mostly to ensure clean sync. In a real app we'd dispatch a full REPLACE action.
+            // 4. Reset squad/bench cleanly before injecting DB state
             useDraftStore.setState({
                 squad: Array(11).fill(null),
                 bench: Array(4).fill(null),
-                budgetUsed: 0
+                budgetUsed: 0,
             })
 
+            // 5. Add players from DB
             teamPlayers.forEach(tp => {
                 const p = tp.players as unknown as Player
-                // Map DB player to expected frontend Player format if needed
                 if (p) {
-                    addPlayer(p, tp.slot_index >= 11 ? tp.slot_index - 11 : tp.slot_index, tp.is_bench)
+                    const idx = tp.is_bench
+                        ? tp.slot_index - 11
+                        : tp.slot_index
+                    addPlayer(p, idx >= 0 ? idx : tp.slot_index, tp.is_bench)
                 }
             })
         }
 
         loadFromSupabase()
-
         return () => { isMounted.current = false }
-    }, [setFormation, setTeamName, addPlayer])
+    }, [setFormationOnly, setTeamName, addPlayer])
 }
