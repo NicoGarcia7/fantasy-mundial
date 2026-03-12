@@ -10,9 +10,7 @@ import { Input } from '@/components/ui/input'
 import FootballPitch from '@/components/draft/FootballPitch'
 import BudgetBar from '@/components/draft/BudgetBar'
 import FormationSelector from '@/components/draft/FormationSelector'
-import AutoSaveIndicator from '@/components/draft/AutoSaveIndicator'
-import { useAutoSaveDraft } from '@/hooks/useAutoSaveDraft'
-import { useDraftLocalStorage } from '@/hooks/useDraftLocalStorage'
+import { useDraftCloud } from '@/hooks/useDraftCloud'
 import PlayerPicker from '@/components/draft/PlayerPicker'
 import BenchRow from '@/components/draft/BenchRow'
 
@@ -41,11 +39,8 @@ export default function DraftPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [savedOnce, setSavedOnce] = useState(false)
 
-    // Persist draft to localStorage (explicit — bypasses Next.js SSR hydration quirks)
-    useDraftLocalStorage()
-
-    // Auto-save: triggers 2s after any squad/formation/name change
-    const { saveStatus, lastSaved, forceSave } = useAutoSaveDraft()
+    // Cloud sync: loads squad from Supabase on mount, saves back on every change
+    const { forceSave } = useDraftCloud()
 
     const filledStarters = squad.filter(Boolean).length
     const filledBench = bench.filter(Boolean).length
