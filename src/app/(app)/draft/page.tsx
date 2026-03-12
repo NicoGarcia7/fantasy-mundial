@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input'
 
 import FootballPitch from '@/components/draft/FootballPitch'
 import BudgetBar from '@/components/draft/BudgetBar'
-import FormationSelector from '@/components/draft/FormationSelector'
 import PlayerPicker from '@/components/draft/PlayerPicker'
 import BenchRow from '@/components/draft/BenchRow'
 import { useDraftCloud } from '@/hooks/useDraftCloud'
@@ -52,7 +51,7 @@ function SaveBadge({ status }: { status: 'idle' | 'saving' | 'saved' | 'error' }
 export default function DraftPage() {
     const {
         formation, squad, bench, teamName, budgetUsed,
-        setFormation, addPlayer, removePlayer, setTeamName, resetDraft,
+        addPlayer, removePlayer, setTeamName, resetDraft,
         getTotalBudget, getBudgetRemaining,
     } = useDraftStore()
 
@@ -68,6 +67,11 @@ export default function DraftPage() {
     const filledStarters = squad.filter(Boolean).length
     const filledBench = bench.filter(Boolean).length
     const isComplete = filledStarters === 11 && filledBench === 4
+
+    // Only block UI when store is EMPTY and loading — if squad already has
+    // players in memory (client-side navigation), skip the spinner
+    const hasInMemory = squad.some(Boolean) || bench.some(Boolean)
+    const showSpinner = isLoading && !hasInMemory
 
     // ── Open picker ─────────────────────────────────────────────
     const openPickerForStarter = useCallback((index: number) => {
@@ -132,8 +136,8 @@ export default function DraftPage() {
         ? activeSlot.isBench ? null : getSlotPosition(formation, activeSlot.index)
         : null
 
-    // ── Loading skeleton ────────────────────────────────────────
-    if (isLoading) {
+    // ── Loading skeleton (only when store is empty) ─────────────
+    if (showSpinner) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -191,8 +195,8 @@ export default function DraftPage() {
                             onClick={handleSave}
                             id="draft-save-btn"
                             className={`h-9 px-4 font-bold text-sm rounded-xl gap-2 transition-all ${isComplete
-                                    ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/90 shadow-[0_0_15px_rgba(57,255,20,0.4)]'
-                                    : 'bg-slate-700 text-slate-400'
+                                ? 'bg-[#39FF14] text-black hover:bg-[#39FF14]/90 shadow-[0_0_15px_rgba(57,255,20,0.4)]'
+                                : 'bg-slate-700 text-slate-400'
                                 }`}
                         >
                             {saveStatus === 'saving' ? (
@@ -204,14 +208,11 @@ export default function DraftPage() {
                     </div>
                 </div>
 
-                {/* Formation selector */}
-                <FormationSelector
-                    current={formation}
-                    onChange={(f) => {
-                        setFormation(f)
-                        toast.info(`Formación: ${f}`)
-                    }}
-                />
+                {/* Formation badge — fixed 4-3-3 for everyone */}
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Formación</span>
+                    <span className="px-3 py-1 rounded-lg bg-[#39FF14]/10 border border-[#39FF14]/30 text-[#39FF14] text-xs font-bold">4-3-3</span>
+                </div>
 
                 {/* Budget bar */}
                 <BudgetBar />
