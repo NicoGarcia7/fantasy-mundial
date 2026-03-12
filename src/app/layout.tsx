@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Teko } from 'next/font/google'
+import { Inter, Oswald } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -9,10 +9,10 @@ const inter = Inter({
   display: 'swap',
 })
 
-const teko = Teko({
+const oswald = Oswald({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-teko',
+  variable: '--font-oswald',
   display: 'swap',
 })
 
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#020617',
+  themeColor: '#04080F',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -59,16 +59,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className={`dark ${inter.variable} ${teko.variable}`} suppressHydrationWarning>
-      <body className="bg-[#020617] text-slate-100 antialiased">
+    <html lang="es" className={`${inter.variable} ${oswald.variable}`} suppressHydrationWarning>
+      <body className="bg-[#04080F] text-slate-100 antialiased">
         {children}
         <Toaster
           position="top-center"
           toastOptions={{
             style: {
-              background: '#1e293b',
-              border: '1px solid rgba(57,255,20,0.3)',
-              color: '#f1f5f9',
+              background: '#07111E',
+              border: '1px solid rgba(201,168,68,0.3)',
+              color: '#F1F5F9',
+              fontFamily: 'Inter, sans-serif',
             },
           }}
         />
